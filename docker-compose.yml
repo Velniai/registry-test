@@ -1,0 +1,49 @@
+version: "3.3"
+
+services: 
+    api:
+        build:
+            context: ./api-django
+        networks:
+            registry:
+                ipv4_address: 172.20.0.5
+        ports:
+            - "8000:8000"
+        volumes:
+            - ./api-django/app:/app
+        command: >
+            sh -c "python manage.py wait_for_db && 
+                   python manage.py makemigrations &&
+                   python manage.py migrate && 
+                   python manage.py loaddata initial_data && 
+                   python manage.py runserver 0.0.0.0:8000"
+        environment: 
+            - DB_HOST=db
+            - DB_NAME=app
+            - DB_USER=postgres
+            - DB_PASS=password
+        depends_on: 
+            - db
+    app:
+        build:
+            context: ./fe-react
+        ports:
+            - "3000:3000"
+        environment: 
+            - REACT_APP_API_URL=http://172.20.0.5:8000/api/
+        depends_on:
+            - api
+    db:
+        image: postgres:12.2-alpine
+        environment: 
+            - POSTGRES_DB=app
+            - POSTGRES_USER=postgres
+            - POSTGRES_PASSWORD=password 
+        networks:
+            registry:
+        
+networks:
+  registry:
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
